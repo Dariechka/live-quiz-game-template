@@ -1,11 +1,11 @@
-export type Request =
+export type RequestMessage =
   | PlayerCommand.Register.Request
   | GameManagementCommand.CreateGame.Request
   | GameManagementCommand.JoinGame.Request
   | GamePlayCommand.StartGame.Request
   | GamePlayCommand.SubmitAnswer.Request;
 
-export type Response =
+export type ResponseMessage =
   | PlayerCommand.Register.Response
   | GameManagementCommand.CreateGame.Response
   | GameManagementCommand.JoinGame.Response
@@ -32,8 +32,8 @@ export namespace PlayerCommand {
       data: {
         name: string,
         index: number | string,
-        error: false,
-        errorText: ''
+        error: boolean,
+        errorText: string | undefined,
       },
       id: 0
     }
