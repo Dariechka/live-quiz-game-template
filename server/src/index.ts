@@ -1,7 +1,8 @@
-import { WebSocketServer } from 'ws'
+import { WebSocket, WebSocketServer } from 'ws'
 import { randomUUID } from 'node:crypto'
-import type { RequestMessage } from './commands'
+import type { RequestMessage } from './data/commands'
 import { handle } from './api'
+import type { ClientContext } from './data/types'
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
@@ -9,17 +10,33 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 const wss = new WebSocketServer({ port: PORT });
 console.log(`Server started on address ${JSON.stringify(wss.address())} and port ${PORT}`);
 
-wss.on('connection', (ws) => {
-  const client = {
+const registry: Map<string, WebSocket> = new Map();
+
+wss.on('connection', (ws: WebSocket) => {
+  const client: ClientContext = {
     id: randomUUID(),
   };
   console.log(`connected: ${client.id}`);
+  registry.set(client.id, ws);
 
   ws.on('message', (msg) => {
     console.log(`message: ${client.id} ` + msg);
     const message: RequestMessage = JSON.parse(msg.toString());
-    const response = handle(message);
-    ws.send(JSON.stringify(response));
+    const responses = handle(client, message);
+    for (const response of responses) {
+      switch (response.kind) {
+        case 'response': {
+          ws.send(JSON.stringify(response.message));
+          break;
+        }
+        case 'broadcast': {
+          for (const player of (client.game?.players ?? [])) {
+            registry.get(player.client)?.send(JSON.stringify(response.message));
+          }
+          break;
+        }
+      }
+    }
   })
 
   ws.on('error', (msg) => {
@@ -28,6 +45,7 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     console.log(`close: ${client.id}`);
+    registry.delete(client.id);
   })
 })
 

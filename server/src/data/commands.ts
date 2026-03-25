@@ -1,3 +1,6 @@
+
+export type ApiResponse = { kind: 'response', message: ResponseMessage } | { kind: 'broadcast', message: BroadcastMessage };
+
 export type RequestMessage =
   | PlayerCommand.Register.Request
   | GameManagementCommand.CreateGame.Request
@@ -9,10 +12,12 @@ export type ResponseMessage =
   | PlayerCommand.Register.Response
   | GameManagementCommand.CreateGame.Response
   | GameManagementCommand.JoinGame.Response
+  | GamePlayCommand.SubmitAnswer.Response;
+
+export type BroadcastMessage =
   | GameManagementCommand.JoinGame.Broadcast
   | GameManagementCommand.PlayerList.Broadcast
   | GamePlayCommand.Question.Broadcast
-  | GamePlayCommand.SubmitAnswer.Response
   | GamePlayCommand.QuestionResult.Broadcast
   | GamePlayCommand.GameFinished.Broadcast;
 
