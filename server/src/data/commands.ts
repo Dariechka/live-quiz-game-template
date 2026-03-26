@@ -102,13 +102,11 @@ export namespace GameManagementCommand {
   export namespace PlayerList {
     export type Broadcast = {
       type: 'update_players',
-      data: [
-        {
-          name: string,
-          index: number | string,
-          score: number
-        }
-      ],
+      data: Array<{
+        name: string,
+        index: number | string,
+        score: number
+      }>,
       id: 0
     }
   }
@@ -132,7 +130,7 @@ export namespace GamePlayCommand {
         questionNumber: number,
         totalQuestions: number,
         text: string,
-        options: [string, string, string, string],
+        options: string[],
         timeLimitSec: number
       },
       id: 0

@@ -3,6 +3,7 @@ import {
   type ApiResponse,
   type BroadcastMessage,
   GameManagementCommand,
+  GamePlayCommand,
   PlayerCommand,
   type ResponseMessage,
 } from '../data/commands'
@@ -26,7 +27,8 @@ const broadcast = (message: BroadcastMessage): ApiResponse => ({
   message,
 })
 
-export const handleAuthRequest = (client: ClientContext, request: PlayerCommand.Register.Request): Array<ApiResponse> => {
+export const handleAuthRequest = (
+  client: ClientContext, request: PlayerCommand.Register.Request): Array<ApiResponse> => {
   const {name, password} = request.data
 
   const createResponseMessage = (error?: string): PlayerCommand.Register.Response => ({
@@ -80,6 +82,8 @@ export const handleCreateGameRequest = (
 
   db.rooms.set(game.code, game)
 
+  client.game = game
+
   return [response({
     type: 'game_created',
     data: {
@@ -108,6 +112,14 @@ export const handleJoinGameRequest = (
     score: 0,
   }
   game.players.push(player)
+  db.rooms.set(game.code, game)
+  const allPlayersData = game.players.map(player => {
+    return {
+      name: player.name,
+      index: player.index.toString(),
+      score: player.score,
+    }
+  })
 
   return [
     response({
@@ -123,6 +135,45 @@ export const handleJoinGameRequest = (
         playerName: player.name,
         playerCount: game.players.length,
       },
+      id: 0,
+    }),
+    broadcast({
+      type: 'update_players',
+      data: allPlayersData,
+      id: 0,
+    }),
+  ]
+}
+
+export const handleStartGameRequest = (
+  client: ClientContext, request: GamePlayCommand.StartGame.Request): Array<ApiResponse> => {
+  const game = required(client.game)
+
+  const status: 'waiting' | 'in_progress' | 'finished' = 'in_progress'
+
+  db.rooms.set(
+    game.code,
+    {
+      ...game,
+      currentQuestion: game.currentQuestion + 1,
+      status,
+      questionStartTs: Date.now(),
+      questionTimerId: setTimeout(() => {}, game.questions[game.currentQuestion].timeLimitSec * 1000),
+    }
+  )
+
+  const payloadData = {
+    questionNumber: game.currentQuestion,
+    totalQuestions: game.questions.length,
+    text: game.questions[game.currentQuestion].text,
+    options: game.questions[game.currentQuestion].options,
+    timeLimitSec: game.questions[game.currentQuestion].timeLimitSec,
+  }
+
+  return [
+    broadcast({
+      type: 'question',
+      data: payloadData,
       id: 0,
     }),
   ]
