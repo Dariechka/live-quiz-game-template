@@ -28,7 +28,7 @@ export interface Question {
 export interface Game {
   id: string;
   code: string;
-  hostId: number;
+  hostId: string;
   questions: Question[];
   players: Player[];
   currentQuestion: number;

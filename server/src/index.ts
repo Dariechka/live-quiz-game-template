@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { RequestMessage } from './data/commands'
 import { handle } from './api'
 import type { ClientContext } from './data/types'
+import { required } from './handlers/handlers'
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
@@ -30,6 +31,7 @@ wss.on('connection', (ws: WebSocket) => {
           break;
         }
         case 'broadcast': {
+          registry.get(required(client.game?.hostId))?.send(JSON.stringify(response.message));
           for (const player of (client.game?.players ?? [])) {
             registry.get(player.client)?.send(JSON.stringify(response.message));
           }

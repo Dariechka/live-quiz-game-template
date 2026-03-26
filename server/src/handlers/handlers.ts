@@ -9,7 +9,7 @@ import {
 import { requiredLength } from '../data/constants'
 import type { ClientContext, Game, Player } from '../data/types'
 
-const required = <T>(value: T, error?: string): NonNullable<T> => {
+export const required = <T>(value: T, error?: string): NonNullable<T> => {
   if (value == null) {
     throw new Error('Value is null or undefined')
   }
@@ -49,6 +49,7 @@ export const handleAuthRequest = (client: ClientContext, request: PlayerCommand.
     }
   } else {
     db.users.set(name, {password, index: db.userIdCounter++})
+    client.username = name
     return [response(createResponseMessage())]
   }
 }
@@ -69,7 +70,7 @@ export const handleCreateGameRequest = (
   const game: Game = {
     id: request.id.toString(),
     code: generateCode(),
-    hostId: db.users.get(client.username!!)?.index!!,
+    hostId: client.id,
     questions: request.data.questions,
     players: [],
     currentQuestion: 0,
@@ -91,6 +92,7 @@ export const handleCreateGameRequest = (
 
 export const handleJoinGameRequest = (
   client: ClientContext, request: GameManagementCommand.JoinGame.Request): Array<ApiResponse> => {
+  console.log(JSON.stringify(client))
   const username = required(client.username, 'no username')
 
   const {code} = request.data
@@ -119,7 +121,7 @@ export const handleJoinGameRequest = (
       type: 'player_joined',
       data: {
         playerName: player.name,
-        playerCount: player.score,
+        playerCount: game.players.length,
       },
       id: 0,
     }),
