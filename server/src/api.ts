@@ -3,13 +3,13 @@ import {
   handleAuthRequest,
   handleCreateGameRequest,
   handleJoinGameRequest,
-  handleStartGameRequest,
+  handleStartGameRequest, handleSubmitAnswerRequest,
 } from './handlers/handlers'
 import {
   isAuthRequest,
   isCreateGameRequest,
   isJoinGameRequest,
-  isStartGameRequest,
+  isStartGameRequest, isSubmitAnswerRequest,
 } from './request-guards/request-guards'
 import type { ClientContext } from './data/types'
 
@@ -22,7 +22,9 @@ export const handle = (client: ClientContext, request: RequestMessage): Array<Ap
     return handleJoinGameRequest(client, request)
   } else if (isStartGameRequest(request)) {
     return handleStartGameRequest(client, request)
+  } else if (isSubmitAnswerRequest(request)) {
+    return handleSubmitAnswerRequest(client, request)
   } else {
-    throw Error(`Unknown type ${request.type}`)
+    throw Error(`Unknown ${request}`)
   }
 }

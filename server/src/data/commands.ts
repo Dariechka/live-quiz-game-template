@@ -1,5 +1,7 @@
-
-export type ApiResponse = { kind: 'response', message: ResponseMessage } | { kind: 'broadcast', message: BroadcastMessage };
+export type ApiResponse = { kind: 'response', message: ResponseMessage } | {
+  kind: 'broadcast',
+  message: BroadcastMessage
+};
 
 export type RequestMessage =
   | PlayerCommand.Register.Request
@@ -162,15 +164,13 @@ export namespace GamePlayCommand {
       data: {
         questionIndex: number,
         correctIndex: number,
-        playerResults: [
-          {
-            name: string,
-            answered: boolean,
-            correct: boolean,
-            pointsEarned: number,
-            totalScore: number
-          }
-        ]
+        playerResults: {
+          name: string,
+          answered: boolean,
+          correct: boolean,
+          pointsEarned: number,
+          totalScore: number
+        }[]
       },
       id: 0
     }
@@ -180,13 +180,12 @@ export namespace GamePlayCommand {
     export type Broadcast = {
       type: 'game_finished',
       data: {
-        scoreboard: [
+        scoreboard:
           {
             name: string,
             score: number,
             rank: number
-          }
-        ]
+          }[]
       },
       id: 0
     }
