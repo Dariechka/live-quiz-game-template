@@ -13,17 +13,17 @@ import {
 } from './request-guards/request-guards'
 import type { ClientContext } from './data/types'
 
-export const handle = (client: ClientContext, request: RequestMessage): Array<ApiResponse> => {
+export const handle = (client: ClientContext, request: RequestMessage, respond: (responses: Array<ApiResponse>) => void) => {
   if (isAuthRequest(request)) {
-    return handleAuthRequest(client, request)
+    handleAuthRequest(client, request, respond)
   } else if (isCreateGameRequest(request)) {
-    return handleCreateGameRequest(client, request)
+    handleCreateGameRequest(client, request, respond)
   } else if (isJoinGameRequest(request)) {
-    return handleJoinGameRequest(client, request)
+    handleJoinGameRequest(client, request, respond)
   } else if (isStartGameRequest(request)) {
-    return handleStartGameRequest(client, request)
+    handleStartGameRequest(client, request, respond)
   } else if (isSubmitAnswerRequest(request)) {
-    return handleSubmitAnswerRequest(client, request)
+    handleSubmitAnswerRequest(client, request, respond)
   } else {
     throw Error(`Unknown ${request}`)
   }

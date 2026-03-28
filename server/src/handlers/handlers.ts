@@ -28,37 +28,49 @@ const broadcast = (message: BroadcastMessage): BroadcastApiResponse => ({
   message,
 })
 
-const finishRound = (game: Game): BroadcastApiResponse[] => {
+const wait = async (millis: number) => {
+  await new Promise(resolve => setTimeout(resolve, millis));
+}
+
+const finishRound = async (game: Game, respond: (responses: Array<ApiResponse>) => void) => {
+  clearTimeout(game.questionTimerId);
+
   const question = game.questions[game.currentQuestion]
   const earned: Map<string, number> = new Map();
   for (const player of game.players) {
-    const answer = required(game.playerAnswers.get(player.name), player.name);
-    const earnedPoints = Math.floor(player.answeredCorrectly ? basePoints * (answer.timestamp - required(game.questionStartTs)) / (question.timeLimitSec * 1000) : 0)
+    const answer = game.playerAnswers.get(player.name);
+    const earnedPoints = !answer ? 0 : Math.floor(player.answeredCorrectly ? basePoints * (answer.timestamp - required(game.questionStartTs)) / (question.timeLimitSec * 1000) : 0)
     player.score += earnedPoints
     earned.set(player.name, earnedPoints)
   }
+  game.playerAnswers.clear();
+
+  respond([
+    broadcast({
+      type: 'question_result',
+      data: {
+        questionIndex: game.currentQuestion,
+        correctIndex: game.questions[game.currentQuestion].correctIndex,
+        playerResults: game.players.map(player => ({
+          name: player.name,
+          answered: true,
+          correct: player.answeredCorrectly === true,
+          pointsEarned: earned.get(player.name) ?? 0,
+          totalScore: player.score,
+        })),
+      },
+      id: 0,
+    })
+  ]);
+
+  await wait(5000);
 
   game.currentQuestion += 1;
-
-  const roundResult = broadcast({
-    type: 'question_result',
-    data: {
-      questionIndex: game.currentQuestion,
-      correctIndex: game.questions[game.currentQuestion].correctIndex,
-      playerResults: game.players.map(player => ({
-        name: player.name,
-        answered: true,
-        correct: player.answeredCorrectly === true,
-        pointsEarned: earned.get(player.name) ?? 0,
-        totalScore: player.score,
-      })),
-    },
-    id: 0,
-  });
-  const responses = [roundResult];
-
   if (game.currentQuestion < game.questions.length) {
-    responses.push(
+    game.questionTimerId = setTimeout(() => finishRound(game, respond), game.questions[game.currentQuestion].timeLimitSec * 1000)
+    game.questionStartTs = Date.now()
+
+    respond([
       broadcast({
         type: 'question',
         data: {
@@ -70,13 +82,11 @@ const finishRound = (game: Game): BroadcastApiResponse[] => {
         },
         id: 0,
       })
-    )
+    ]);
   } else {
     const gameResult = finishGame(game);
-    responses.push(gameResult)
+    respond([gameResult]);
   }
-
-  return responses;
 }
 
 const finishGame = (game: Game): BroadcastApiResponse => {
@@ -94,7 +104,7 @@ const finishGame = (game: Game): BroadcastApiResponse => {
 }
 
 export const handleAuthRequest = (
-  client: ClientContext, request: PlayerCommand.Register.Request): Array<ApiResponse> => {
+  client: ClientContext, request: PlayerCommand.Register.Request, respond: (responses: Array<ApiResponse>) => void) => {
   const {name, password} = request.data
 
   const createResponseMessage = (error?: string): PlayerCommand.Register.Response => ({
@@ -111,20 +121,20 @@ export const handleAuthRequest = (
   if (db.users.has(name)) {
     if (db.users.get(name)?.password === password) {
       client.username = name
-      return [response(createResponseMessage())]
+      respond([response(createResponseMessage())])
     } else {
-      return [response(createResponseMessage('Wrong password'))]
+      respond([response(createResponseMessage('Wrong password'))])
     }
   } else {
     db.users.set(name, {password, index: db.userIdCounter++})
     client.username = name
-    return [response(createResponseMessage())]
+    respond([response(createResponseMessage())])
   }
 }
 
 export const handleCreateGameRequest = (
-  client: ClientContext, request: GameManagementCommand.CreateGame.Request): Array<ApiResponse> => {
-  function generateCode() {
+  client: ClientContext, request: GameManagementCommand.CreateGame.Request, respond: (responses: Array<ApiResponse>) => void) => {
+  const generateCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     let result = ''
 
@@ -150,18 +160,18 @@ export const handleCreateGameRequest = (
 
   client.game = game
 
-  return [response({
+  respond([response({
     type: 'game_created',
     data: {
       gameId: game.id,
       code: game.code,
     },
     id: 0,
-  })]
+  })])
 }
 
 export const handleJoinGameRequest = (
-  client: ClientContext, request: GameManagementCommand.JoinGame.Request): Array<ApiResponse> => {
+  client: ClientContext, request: GameManagementCommand.JoinGame.Request, respond: (responses: Array<ApiResponse>) => void) => {
   const username = required(client.username, 'no username')
 
   const {code} = request.data
@@ -186,7 +196,7 @@ export const handleJoinGameRequest = (
     }
   })
 
-  return [
+  respond([
     response({
       type: 'game_joined',
       data: {
@@ -207,18 +217,15 @@ export const handleJoinGameRequest = (
       data: allPlayersData,
       id: 0,
     }),
-  ]
+  ])
 }
 
 export const handleStartGameRequest = (
-  client: ClientContext, request: GamePlayCommand.StartGame.Request): Array<ApiResponse> => {
+  client: ClientContext, request: GamePlayCommand.StartGame.Request, respond: (responses: Array<ApiResponse>) => void) => {
   const game = required(client.game)
   game.status = 'in_progress'
   game.questionStartTs = Date.now()
-  game.questionTimerId = setTimeout(() => {
-    const responses = finishRound(game);
-    client.finish(responses);
-  }, game.questions[game.currentQuestion].timeLimitSec * 1000)
+  game.questionTimerId = setTimeout(() => finishRound(game, respond), game.questions[game.currentQuestion].timeLimitSec * 1000)
 
   const payloadData = {
     questionNumber: game.currentQuestion + 1,
@@ -228,17 +235,17 @@ export const handleStartGameRequest = (
     timeLimitSec: game.questions[game.currentQuestion].timeLimitSec,
   }
 
-  return [
+  respond([
     broadcast({
       type: 'question',
       data: payloadData,
       id: 0,
     }),
-  ]
+  ])
 }
 
 export const handleSubmitAnswerRequest = (
-  client: ClientContext, request: GamePlayCommand.SubmitAnswer.Request): Array<ApiResponse> => {
+  client: ClientContext, request: GamePlayCommand.SubmitAnswer.Request, respond: (responses: Array<ApiResponse>) => void) => {
   const game = required(client.game)
   const question = game.questions[game.currentQuestion]
 
@@ -262,14 +269,9 @@ export const handleSubmitAnswerRequest = (
     id: 0,
   });
 
-  const responses: Array<ApiResponse> = [answerResult];
+  respond([answerResult]);
 
   if (game.players.every(player => player.hasAnswered)) {
-    clearTimeout(game.questionTimerId)
-
-    const roundResults = finishRound(game);
-    responses.push(...roundResults);
+    finishRound(game, respond);
   }
-
-  return responses
 }

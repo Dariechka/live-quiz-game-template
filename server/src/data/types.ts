@@ -1,10 +1,8 @@
 import type { WebSocket } from 'ws'
 import type { Username } from '../db'
-import type { BroadcastApiResponse } from './commands'
 
 export type ClientContext = {
   id: string,
-  finish: (responses: Array<BroadcastApiResponse>) => void,
   username?: Username,
   game?: Game,
 }

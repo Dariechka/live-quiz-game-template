@@ -1,6 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws'
 import { randomUUID } from 'node:crypto'
-import type { RequestMessage } from './data/commands'
+import type { ApiResponse, RequestMessage } from './data/commands'
 import { handle } from './api'
 import type { ClientContext } from './data/types'
 import { required } from './handlers/handlers'
@@ -16,22 +16,9 @@ const registry: Map<string, WebSocket> = new Map();
 wss.on('connection', (ws: WebSocket) => {
   const client: ClientContext = {
     id: randomUUID(),
-    finish: (responses) => {
-      for (const response of responses) {
-        registry.get(required(client.game?.hostId))?.send(JSON.stringify(response.message));
-        for (const player of (client.game?.players ?? [])) {
-          registry.get(player.client)?.send(JSON.stringify(response.message));
-        }
-      }
-    },
   };
-  console.log(`connected: ${client.id}`);
-  registry.set(client.id, ws);
 
-  ws.on('message', (msg) => {
-    console.log(`message: ${client.id} ` + msg);
-    const message: RequestMessage = JSON.parse(msg.toString());
-    const responses = handle(client, message);
+  const respond = (responses: Array<ApiResponse>) => {
     for (const response of responses) {
       switch (response.kind) {
         case 'response': {
@@ -47,6 +34,15 @@ wss.on('connection', (ws: WebSocket) => {
         }
       }
     }
+  }
+
+  console.log(`connected: ${client.id}`);
+  registry.set(client.id, ws);
+
+  ws.on('message', (msg) => {
+    console.log(`message: ${client.id} ` + msg);
+    const message: RequestMessage = JSON.parse(msg.toString());
+    handle(client, message, respond);
   })
 
   ws.on('error', (msg) => {
