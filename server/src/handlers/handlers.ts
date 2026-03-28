@@ -28,7 +28,7 @@ const broadcast = (message: BroadcastMessage): BroadcastApiResponse => ({
   message,
 })
 
-const finishRound = (game: Game): BroadcastApiResponse => {
+const finishRound = (game: Game): BroadcastApiResponse[] => {
   const question = game.questions[game.currentQuestion]
   const earned: Map<string, number> = new Map();
   for (const player of game.players) {
@@ -40,7 +40,7 @@ const finishRound = (game: Game): BroadcastApiResponse => {
 
   game.currentQuestion += 1;
 
-  return broadcast({
+  const roundResult = broadcast({
     type: 'question_result',
     data: {
       questionIndex: game.currentQuestion,
@@ -54,7 +54,29 @@ const finishRound = (game: Game): BroadcastApiResponse => {
       })),
     },
     id: 0,
-  })
+  });
+  const responses = [roundResult];
+
+  if (game.currentQuestion < game.questions.length) {
+    responses.push(
+      broadcast({
+        type: 'question',
+        data: {
+          questionNumber: game.currentQuestion + 1,
+          totalQuestions: game.questions.length,
+          text: game.questions[game.currentQuestion].text,
+          options: game.questions[game.currentQuestion].options,
+          timeLimitSec: game.questions[game.currentQuestion].timeLimitSec,
+        },
+        id: 0,
+      })
+    )
+  } else {
+    const gameResult = finishGame(game);
+    responses.push(gameResult)
+  }
+
+  return responses;
 }
 
 const finishGame = (game: Game): BroadcastApiResponse => {
@@ -194,17 +216,12 @@ export const handleStartGameRequest = (
   game.status = 'in_progress'
   game.questionStartTs = Date.now()
   game.questionTimerId = setTimeout(() => {
-    const roundResult = finishRound(game);
-    const responses = [roundResult];
-    if (game.currentQuestion === game.questions.length) {
-      const gameResult = finishGame(game);
-      responses.push(gameResult);
-    }
+    const responses = finishRound(game);
     client.finish(responses);
   }, game.questions[game.currentQuestion].timeLimitSec * 1000)
 
   const payloadData = {
-    questionNumber: game.currentQuestion,
+    questionNumber: game.currentQuestion + 1,
     totalQuestions: game.questions.length,
     text: game.questions[game.currentQuestion].text,
     options: game.questions[game.currentQuestion].options,
@@ -250,13 +267,8 @@ export const handleSubmitAnswerRequest = (
   if (game.players.every(player => player.hasAnswered)) {
     clearTimeout(game.questionTimerId)
 
-    const roundResult = finishRound(game);
-    responses.push(roundResult);
-
-    if (game.currentQuestion === game.questions.length) {
-      const gameResult = finishGame(game);
-      responses.push(gameResult)
-    }
+    const roundResults = finishRound(game);
+    responses.push(...roundResults);
   }
 
   return responses
