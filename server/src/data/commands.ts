@@ -12,6 +12,7 @@ export type ApiResponse = ResponseApiResponse | BroadcastApiResponse;
 
 export type RequestMessage =
   | PlayerCommand.Register.Request
+  | PlayerCommand.LeaveGame.Request
   | GameManagementCommand.CreateGame.Request
   | GameManagementCommand.JoinGame.Request
   | GamePlayCommand.StartGame.Request
@@ -49,6 +50,12 @@ export namespace PlayerCommand {
         error: boolean,
         errorText: string | undefined,
       },
+      id: 0
+    }
+  }
+  export namespace LeaveGame {
+    export type Request = {
+      type: 'leave_game',
       id: 0
     }
   }

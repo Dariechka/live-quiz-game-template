@@ -2,13 +2,13 @@ import { type ApiResponse, type RequestMessage } from './data/commands'
 import {
   handleAuthRequest,
   handleCreateGameRequest,
-  handleJoinGameRequest,
+  handleJoinGameRequest, handleLeaveGameRequest,
   handleStartGameRequest, handleSubmitAnswerRequest,
 } from './handlers/handlers'
 import {
   isAuthRequest,
   isCreateGameRequest,
-  isJoinGameRequest,
+  isJoinGameRequest, isLeaveGameRequest,
   isStartGameRequest, isSubmitAnswerRequest,
 } from './request-guards/request-guards'
 import type { ClientContext } from './data/types'
@@ -24,6 +24,8 @@ export const handle = (client: ClientContext, request: RequestMessage, respond: 
     handleStartGameRequest(client, request, respond)
   } else if (isSubmitAnswerRequest(request)) {
     handleSubmitAnswerRequest(client, request, respond)
+  } else if (isLeaveGameRequest(request)) {
+    handleLeaveGameRequest (client, request, respond)
   } else {
     throw Error(`Unknown ${request}`)
   }

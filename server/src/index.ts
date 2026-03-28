@@ -50,8 +50,9 @@ wss.on('connection', (ws: WebSocket) => {
   })
 
   ws.on('close', () => {
+    handle(client, {type: 'leave_game', id: 0}, respond);
     console.log(`close: ${client.id}`);
-    registry.delete(client.id);
+    registry.delete(client.id)
   })
 })
 

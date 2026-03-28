@@ -275,3 +275,26 @@ export const handleSubmitAnswerRequest = (
     finishRound(game, respond);
   }
 }
+
+export const handleLeaveGameRequest = (
+  client: ClientContext, request: PlayerCommand.LeaveGame.Request, respond: (responses: Array<ApiResponse>) => void) => {
+  const game = client.game
+  if (!game) {
+    return
+  }
+
+  const playerIndex = game.players.findIndex(player => player.client === client.id)
+  game.players.splice(playerIndex, 1)
+
+  return [
+    broadcast({
+      type: 'update_players',
+      data: game.players.map(player => ({
+        name: player.name,
+        index: player.index.toString(),
+        score: player.score,
+      })),
+      id: 0,
+    })
+  ]
+}

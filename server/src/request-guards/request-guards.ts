@@ -5,3 +5,5 @@ export const isCreateGameRequest = (request: RequestMessage): request is GameMan
 export const isJoinGameRequest = (request: RequestMessage): request is GameManagementCommand.JoinGame.Request => request.type === 'join_game'
 export const isStartGameRequest = (request: RequestMessage): request is GamePlayCommand.StartGame.Request => request.type === 'start_game'
 export const isSubmitAnswerRequest = (request: RequestMessage): request is GamePlayCommand.SubmitAnswer.Request => request.type === 'answer'
+export const isLeaveGameRequest = (request: RequestMessage): request is PlayerCommand.LeaveGame.Request => request.type === 'leave_game'
+
