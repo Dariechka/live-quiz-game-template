@@ -1,10 +1,10 @@
 import { db } from '../db'
 import {
-  type ApiResponse,
+  type ApiResponse, type BroadcastApiResponse,
   type BroadcastMessage,
   GameManagementCommand,
   GamePlayCommand,
-  PlayerCommand,
+  PlayerCommand, type ResponseApiResponse,
   type ResponseMessage,
 } from '../data/commands'
 import { basePoints, requiredLength } from '../data/constants'
@@ -18,15 +18,58 @@ export const required = <T>(value: T, error?: string): NonNullable<T> => {
   return value
 }
 
-const response = (message: ResponseMessage): ApiResponse => ({
+const response = (message: ResponseMessage): ResponseApiResponse => ({
   kind: 'response',
   message,
 })
 
-const broadcast = (message: BroadcastMessage): ApiResponse => ({
+const broadcast = (message: BroadcastMessage): BroadcastApiResponse => ({
   kind: 'broadcast',
   message,
 })
+
+const finishRound = (game: Game): BroadcastApiResponse => {
+  const question = game.questions[game.currentQuestion]
+  const earned: Map<string, number> = new Map();
+  for (const player of game.players) {
+    const answer = required(game.playerAnswers.get(player.name), player.name);
+    const earnedPoints = Math.floor(player.answeredCorrectly ? basePoints * (answer.timestamp - required(game.questionStartTs)) / (question.timeLimitSec * 1000) : 0)
+    player.score += earnedPoints
+    earned.set(player.name, earnedPoints)
+  }
+
+  game.currentQuestion += 1;
+
+  return broadcast({
+    type: 'question_result',
+    data: {
+      questionIndex: game.currentQuestion,
+      correctIndex: game.questions[game.currentQuestion].correctIndex,
+      playerResults: game.players.map(player => ({
+        name: player.name,
+        answered: true,
+        correct: player.answeredCorrectly === true,
+        pointsEarned: earned.get(player.name) ?? 0,
+        totalScore: player.score,
+      })),
+    },
+    id: 0,
+  })
+}
+
+const finishGame = (game: Game): BroadcastApiResponse => {
+  return broadcast({
+    type: 'game_finished',
+    data: {
+      scoreboard: game.players.sort((a, b) => a.score - b.score).map((player, i) => ({
+        name: player.name,
+        score: player.score,
+        rank: i + 1,
+      })),
+    },
+    id: 0,
+  })
+}
 
 export const handleAuthRequest = (
   client: ClientContext, request: PlayerCommand.Register.Request): Array<ApiResponse> => {
@@ -150,7 +193,15 @@ export const handleStartGameRequest = (
   const game = required(client.game)
   game.status = 'in_progress'
   game.questionStartTs = Date.now()
-  game.questionTimerId = setTimeout(() => {}, game.questions[game.currentQuestion].timeLimitSec * 1000)
+  game.questionTimerId = setTimeout(() => {
+    const roundResult = finishRound(game);
+    const responses = [roundResult];
+    if (game.currentQuestion === game.questions.length) {
+      const gameResult = finishGame(game);
+      responses.push(gameResult);
+    }
+    client.finish(responses);
+  }, game.questions[game.currentQuestion].timeLimitSec * 1000)
 
   const payloadData = {
     questionNumber: game.currentQuestion,
@@ -186,67 +237,27 @@ export const handleSubmitAnswerRequest = (
   player.answerTime = Date.now()
   player.answeredCorrectly = request.data.answerIndex === question.correctIndex
 
+  const answerResult = response({
+    type: 'answer_accepted',
+    data: {
+      questionIndex: request.data.questionIndex,
+    },
+    id: 0,
+  });
+
+  const responses: Array<ApiResponse> = [answerResult];
+
   if (game.players.every(player => player.hasAnswered)) {
     clearTimeout(game.questionTimerId)
 
-    const earned: Map<string, number> = new Map();
-    for (const player of game.players) {
-      const answer = required(game.playerAnswers.get(player.name), player.name);
-      const earnedPoints = Math.floor(player.answeredCorrectly ? basePoints * (answer.timestamp - required(game.questionStartTs)) / (question.timeLimitSec * 1000) : 0)
-      player.score += earnedPoints
-      earned.set(player.name, earnedPoints)
+    const roundResult = finishRound(game);
+    responses.push(roundResult);
+
+    if (game.currentQuestion === game.questions.length) {
+      const gameResult = finishGame(game);
+      responses.push(gameResult)
     }
-
-    const result = [
-      response({
-        type: 'answer_accepted',
-        data: {
-          questionIndex: request.data.questionIndex,
-        },
-        id: 0,
-      }),
-      broadcast({
-        type: 'question_result',
-        data: {
-          questionIndex: request.data.questionIndex,
-          correctIndex: question.correctIndex,
-          playerResults: game.players.map(player => ({
-            name: player.name,
-            answered: true,
-            correct: player.answeredCorrectly === true,
-            pointsEarned: earned.get(player.name) ?? 0,
-            totalScore: player.score,
-          })),
-        },
-        id: 0,
-      }),
-    ]
-
-    if (game.currentQuestion + 1 === game.questions.length) {
-      result.push(
-        broadcast({
-          type: 'game_finished',
-          data: {
-            scoreboard: game.players.sort((a, b) => a.score - b.score).map((player, i) => ({
-              name: player.name,
-              score: player.score,
-              rank: i + 1,
-            })),
-          },
-          id: 0,
-        }))
-    }
-
-    return result
-  } else {
-    return [
-      response({
-        type: 'answer_accepted',
-        data: {
-          questionIndex: request.data.questionIndex,
-        },
-        id: 0,
-      }),
-    ]
   }
+
+  return responses
 }

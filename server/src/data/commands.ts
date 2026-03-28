@@ -1,7 +1,14 @@
-export type ApiResponse = { kind: 'response', message: ResponseMessage } | {
+export type BroadcastApiResponse = {
   kind: 'broadcast',
   message: BroadcastMessage
 };
+
+export type ResponseApiResponse = {
+  kind: 'response',
+  message: ResponseMessage
+};
+
+export type ApiResponse = ResponseApiResponse | BroadcastApiResponse;
 
 export type RequestMessage =
   | PlayerCommand.Register.Request

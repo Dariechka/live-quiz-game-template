@@ -16,6 +16,14 @@ const registry: Map<string, WebSocket> = new Map();
 wss.on('connection', (ws: WebSocket) => {
   const client: ClientContext = {
     id: randomUUID(),
+    finish: (responses) => {
+      for (const response of responses) {
+        registry.get(required(client.game?.hostId))?.send(JSON.stringify(response.message));
+        for (const player of (client.game?.players ?? [])) {
+          registry.get(player.client)?.send(JSON.stringify(response.message));
+        }
+      }
+    },
   };
   console.log(`connected: ${client.id}`);
   registry.set(client.id, ws);
