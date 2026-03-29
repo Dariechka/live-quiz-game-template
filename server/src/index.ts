@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { ApiResponse, RequestMessage } from './data/commands'
 import { handle } from './api'
 import type { ClientContext } from './data/types'
-import { required } from './handlers/handlers'
+import { required, wait } from './utils'
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
@@ -18,7 +18,7 @@ wss.on('connection', (ws: WebSocket) => {
     id: randomUUID(),
   };
 
-  const respond = (responses: Array<ApiResponse>) => {
+  const respond = async (responses: Array<ApiResponse>) => {
     for (const response of responses) {
       switch (response.kind) {
         case 'response': {
@@ -33,6 +33,7 @@ wss.on('connection', (ws: WebSocket) => {
           break;
         }
       }
+      await wait(100);
     }
   }
 

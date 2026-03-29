@@ -1,36 +1,15 @@
 import { db } from '../db'
 import {
-  type ApiResponse, type BroadcastApiResponse,
-  type BroadcastMessage,
+  type ApiResponse,
+  type BroadcastApiResponse,
   GameManagementCommand,
   GamePlayCommand,
-  PlayerCommand, type ResponseApiResponse,
-  type ResponseMessage,
+  PlayerCommand,
 } from '../data/commands'
 import { basePoints, requiredLength } from '../data/constants'
 import type { ClientContext, Game, Player } from '../data/types'
 import { clearTimeout } from 'node:timers'
-
-export const required = <T>(value: T, error?: string): NonNullable<T> => {
-  if (value == null) {
-    throw new Error(error)
-  }
-  return value
-}
-
-const response = (message: ResponseMessage): ResponseApiResponse => ({
-  kind: 'response',
-  message,
-})
-
-const broadcast = (message: BroadcastMessage): BroadcastApiResponse => ({
-  kind: 'broadcast',
-  message,
-})
-
-const wait = async (millis: number) => {
-  await new Promise(resolve => setTimeout(resolve, millis));
-}
+import { broadcast, required, response, wait } from '../utils'
 
 const finishRound = async (game: Game, respond: (responses: Array<ApiResponse>) => void) => {
   clearTimeout(game.questionTimerId);
@@ -43,7 +22,6 @@ const finishRound = async (game: Game, respond: (responses: Array<ApiResponse>) 
     player.score += earnedPoints
     earned.set(player.name, earnedPoints)
   }
-  game.playerAnswers.clear();
 
   respond([
     broadcast({
@@ -63,11 +41,18 @@ const finishRound = async (game: Game, respond: (responses: Array<ApiResponse>) 
     })
   ]);
 
+  game.playerAnswers.clear();
+  game.players.forEach(player => {
+    player.hasAnswered = undefined
+    player.answerTime = undefined
+    player.answeredCorrectly = undefined
+  })
+
   await wait(5000);
 
   game.currentQuestion += 1;
   if (game.currentQuestion < game.questions.length) {
-    game.questionTimerId = setTimeout(() => finishRound(game, respond), game.questions[game.currentQuestion].timeLimitSec * 1000)
+    game.questionTimerId = setTimeout(async () => await finishRound(game, respond), game.questions[game.currentQuestion].timeLimitSec * 1000)
     game.questionStartTs = Date.now()
 
     respond([
@@ -93,7 +78,7 @@ const finishGame = (game: Game): BroadcastApiResponse => {
   return broadcast({
     type: 'game_finished',
     data: {
-      scoreboard: game.players.sort((a, b) => a.score - b.score).map((player, i) => ({
+      scoreboard: game.players.sort((a, b) => b.score - a.score).map((player, i) => ({
         name: player.name,
         score: player.score,
         rank: i + 1,
@@ -225,7 +210,7 @@ export const handleStartGameRequest = (
   const game = required(client.game)
   game.status = 'in_progress'
   game.questionStartTs = Date.now()
-  game.questionTimerId = setTimeout(() => finishRound(game, respond), game.questions[game.currentQuestion].timeLimitSec * 1000)
+  game.questionTimerId = setTimeout(async () => await finishRound(game, respond), game.questions[game.currentQuestion].timeLimitSec * 1000)
 
   const payloadData = {
     questionNumber: game.currentQuestion + 1,
@@ -244,7 +229,7 @@ export const handleStartGameRequest = (
   ])
 }
 
-export const handleSubmitAnswerRequest = (
+export const handleSubmitAnswerRequest = async (
   client: ClientContext, request: GamePlayCommand.SubmitAnswer.Request, respond: (responses: Array<ApiResponse>) => void) => {
   const game = required(client.game)
   const question = game.questions[game.currentQuestion]
@@ -272,7 +257,7 @@ export const handleSubmitAnswerRequest = (
   respond([answerResult]);
 
   if (game.players.every(player => player.hasAnswered)) {
-    finishRound(game, respond);
+    await finishRound(game, respond);
   }
 }
 
