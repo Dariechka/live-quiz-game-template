@@ -1,17 +1,17 @@
-import { type ApiResponse, type RequestMessage } from './data/commands'
+import { type ApiResponse, type RequestMessage } from './data/commands.js'
 import {
   handleAuthRequest,
   handleCreateGameRequest,
   handleJoinGameRequest, handleLeaveGameRequest,
   handleStartGameRequest, handleSubmitAnswerRequest,
-} from './handlers/handlers'
+} from './handlers/handlers.js'
 import {
   isAuthRequest,
   isCreateGameRequest,
   isJoinGameRequest, isLeaveGameRequest,
   isStartGameRequest, isSubmitAnswerRequest,
-} from './request-guards/request-guards'
-import type { ClientContext } from './data/types'
+} from './request-guards/request-guards.js'
+import type { ClientContext } from './data/types.js'
 
 export const handle = (client: ClientContext, request: RequestMessage, respond: (responses: Array<ApiResponse>) => void) => {
   if (isAuthRequest(request)) {

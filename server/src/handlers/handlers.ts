@@ -1,15 +1,15 @@
-import { db } from '../db'
+import { db } from '../db.js'
 import {
   type ApiResponse,
   type BroadcastApiResponse,
   GameManagementCommand,
   GamePlayCommand,
   PlayerCommand,
-} from '../data/commands'
-import { basePoints, requiredLength } from '../data/constants'
-import type { ClientContext, Game, Player } from '../data/types'
+} from '../data/commands.js'
+import { basePoints, requiredLength } from '../data/constants.js'
+import type { ClientContext, Game, Player } from '../data/types.js'
 import { clearTimeout } from 'node:timers'
-import { broadcast, required, response, wait } from '../utils'
+import { broadcast, required, response, wait } from '../utils.js'
 
 const finishRound = async (game: Game, respond: (responses: Array<ApiResponse>) => void) => {
   clearTimeout(game.questionTimerId);

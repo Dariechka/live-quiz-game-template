@@ -1,9 +1,9 @@
 import { WebSocket, WebSocketServer } from 'ws'
 import { randomUUID } from 'node:crypto'
-import type { ApiResponse, RequestMessage } from './data/commands'
-import { handle } from './api'
-import type { ClientContext } from './data/types'
-import { required, wait } from './utils'
+import type { ApiResponse, RequestMessage } from './data/commands.js'
+import { handle } from './api.js'
+import type { ClientContext } from './data/types.js'
+import { required, wait } from './utils.js'
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
