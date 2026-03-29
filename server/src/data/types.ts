@@ -1,6 +1,14 @@
-import type { WebSocket } from 'ws';
+import type { WebSocket } from 'ws'
+import type { Username } from '../db'
+
+export type ClientContext = {
+  id: string,
+  username?: Username,
+  game?: Game,
+}
 
 export interface Player {
+  client: string,
   name: string;
   index: string;
   score: number;
@@ -25,16 +33,14 @@ export interface Game {
   players: Player[];
   currentQuestion: number;
   status: 'waiting' | 'in_progress' | 'finished';
-  questionStartTime?: number;
-  questionTimer?: NodeJS.Timeout;
+  questionStartTs?: number;
+  questionTimerId?: NodeJS.Timeout;
   playerAnswers: Map<string, { answerIndex: number; timestamp: number }>;
 }
 
 export interface User {
-  name: string;
   password: string;
-  index: string;
-  ws?: WebSocket;
+  index: number;
 }
 
 export interface WSMessage {
