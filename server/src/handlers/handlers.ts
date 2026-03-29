@@ -18,7 +18,8 @@ const finishRound = async (game: Game, respond: (responses: Array<ApiResponse>) 
   const earned: Map<string, number> = new Map();
   for (const player of game.players) {
     const answer = game.playerAnswers.get(player.name);
-    const earnedPoints = !answer ? 0 : Math.floor(player.answeredCorrectly ? basePoints * (answer.timestamp - required(game.questionStartTs)) / (question.timeLimitSec * 1000) : 0)
+    const coefficient = (!answer || !player.answeredCorrectly) ? 0 : 1 - (answer.timestamp - required(game.questionStartTs)) / (question.timeLimitSec * 1000)
+    const earnedPoints = Math.floor(basePoints * coefficient)
     player.score += earnedPoints
     earned.set(player.name, earnedPoints)
   }
